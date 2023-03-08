@@ -82,6 +82,30 @@ fun blendingImagesUsingAlpha(image: BufferedImage, watermarkImage: BufferedImage
     return watermarkedImage
 }
 
+fun blendingImagesUsingTransparencyColor(
+    image: BufferedImage,
+    watermarkImage: BufferedImage,
+    transparency: Int,
+    transparencyColor: Color
+): BufferedImage {
+    val watermarkedImage = BufferedImage(image.width, image.height, BufferedImage.TYPE_INT_RGB)
+    for (x in 0 until image.width) {
+        for (y in 0 until image.height) {
+            val iColor = Color(image.getRGB(x, y))
+            val wColor = Color(watermarkImage.getRGB(x, y), true)
+            val color =
+                if (wColor.red != transparencyColor.red || wColor.green != transparencyColor.green || wColor.blue != transparencyColor.blue) Color(
+                    (wColor.red * transparency + iColor.red * (100 - transparency)) / 100,
+                    (wColor.green * transparency + iColor.green * (100 - transparency)) / 100,
+                    (wColor.blue * transparency + iColor.blue * (100 - transparency)) / 100
+                ) else iColor
+            watermarkedImage.setRGB(x, y, color.rgb)
+        }
+    }
+    return watermarkedImage
+
+}
+
 fun writeImageFile(outputImage: BufferedImage) {
     println("Input the output image filename (jpg or png extension):")
     val fileName = readln()
@@ -104,15 +128,43 @@ fun checkUsingOfAlpha(watermarkImage: BufferedImage): Boolean {
     return usingOfAlpha
 }
 
+fun checkUsingOfTransparencyColor(watermarkImage: BufferedImage): Boolean {
+    var usingOfTransparencyColor = false
+    if (watermarkImage.transparency != Transparency.TRANSLUCENT) {
+        println("Do you want to set a transparency color?")
+        if (readln() == "yes") {
+            usingOfTransparencyColor = true
+        }
+    }
+
+    return usingOfTransparencyColor
+}
+
+fun inputTransparencyColor(): Color {
+    try {
+        println("Input a transparency color ([Red] [Green] [Blue]):")
+        val color = readln().split(" ")
+        if (color.size != 3) throw Exception()
+        return Color(color[0].toInt(), color[1].toInt(), color[2].toInt())
+    } catch (e: Exception) {
+        throw Exception("The transparency color input is invalid.")
+    }
+}
+
 fun watermark() {
     try {
         val image = inputFileImage("")
         val watermarkImage = inputFileImage("watermark ")
         checkImages(image, watermarkImage)
-        val usingAlpha = checkUsingOfAlpha(watermarkImage)
+        val usingTransparencyColor = checkUsingOfTransparencyColor(watermarkImage)
+        val usingAlpha = if (!usingTransparencyColor) checkUsingOfAlpha(watermarkImage) else false
+        val transparencyColor: Color = if (usingTransparencyColor) inputTransparencyColor() else Color.BLUE
         val transparency = readTransparencyPercentage()
-        val watermarkedImage = if (usingAlpha) blendingImagesUsingAlpha(image, watermarkImage, transparency)
-        else blendingImages(image, watermarkImage, transparency)
+        val watermarkedImage = if (usingTransparencyColor) {
+            blendingImagesUsingTransparencyColor(image, watermarkImage, transparency, transparencyColor)
+        } else
+            if (usingAlpha) blendingImagesUsingAlpha(image, watermarkImage, transparency)
+            else blendingImages(image, watermarkImage, transparency)
         writeImageFile(watermarkedImage)
 
     } catch (e: Exception) {
